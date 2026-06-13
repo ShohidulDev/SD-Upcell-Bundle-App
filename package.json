@@ -1,15 +1,18 @@
 {
-  "name": "upcell-bundle-product",
+  "name": "sd-upcell-bundle-app",
   "version": "1.0.0",
-  "description": "Automatically display bundle products on single product pages",
+  "description": "Shopify upsell and bundle app",
+  "main": "server.js",
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "dotenv": "^16.0.3",
-    "node-fetch": "^2.6.9",
-    "crypto": "^1.0.1"
+    "node-fetch": "^2.7.0"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
