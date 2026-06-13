@@ -573,4 +573,7 @@ async function registerWebhook(shop, accessToken) {
 // START SERVER
 // ============================================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Upcell Bundle & Product running on port ${PORT}`));
+if (process.env.VERCEL !== "1") {
+  app.listen(PORT, () => console.log(`✅ running on ${PORT}`));
+}
+module.exports = app;
