@@ -12,7 +12,7 @@
     "dotenv": "^16.0.3",
     "node-fetch": "^2.7.0"
   },
-  "engines": {
-    "node": "18.x"
-  }
+"engines": {
+  "node": "22.x"
+}
 }
