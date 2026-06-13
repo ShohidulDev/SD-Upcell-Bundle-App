@@ -148,7 +148,7 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/logo.png", (req, res) => {
   const base64Data = SD_LOGO.replace(/^data:image\/png;base64,/, "");
   const imgBuffer = Buffer.from(base64Data, "base64");
-  res.setHeader("Content-Type", "image/png");
+  res.setHeader("Content-Type", "image/jpeg");
   res.send(imgBuffer);
 });
 
@@ -165,7 +165,7 @@ app.get("/", (req, res) => {
   <style>
     ${SHARED_STYLES}
     .hero { background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); color: white; padding: 80px 20px; text-align: center; }
-    .hero-logo { width: 80px; height: 80px; border-radius: 16px; margin-bottom: 24px; }
+    .hero-logo { display: block; width: 80px; height: 80px; border-radius: 16px; margin: 0 auto 24px; object-fit: contain; }
     .hero h1 { font-size: 42px; margin-bottom: 12px; background: linear-gradient(135deg, #4fc3f7, #7c4dff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .hero p { font-size: 18px; opacity: 0.8; margin-bottom: 40px; color: #ccc; }
     .btn { background: linear-gradient(135deg, #4fc3f7, #7c4dff); color: white; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 18px; display: inline-block; border: none; cursor: pointer; }
