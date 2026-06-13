@@ -1,0 +1,15 @@
+{
+  "name": "upcell-bundle-product",
+  "version": "1.0.0",
+  "description": "Automatically display bundle products on single product pages",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "dotenv": "^16.0.3",
+    "node-fetch": "^2.6.9",
+    "crypto": "^1.0.1"
+  }
+}
