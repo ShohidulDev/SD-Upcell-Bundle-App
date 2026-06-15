@@ -1079,7 +1079,7 @@ app.get("/auth/callback", async (req, res) => {
     const tokenData = await apiFetch(`https://${shop}/admin/oauth/access_token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: SHOPIFY_API_KEY, client_secret: SHOPIFY_API_SECRET, code }),
+      body: JSON.stringify({ client_id: SHOPIFY_API_KEY, client_secret: SHOPIFY_API_SECRET, code, expiring: true }),
     });
 
     const access_token = tokenData.access_token;
