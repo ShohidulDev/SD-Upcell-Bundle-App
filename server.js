@@ -1058,7 +1058,7 @@ app.get("/install", (req, res) => {
     return res.status(400).send("Invalid shop domain format. Expected format: store-name.myshopify.com");
   }
 
-  const redirectUrl = `https://${shop}/admin/oauth/authorize?client_id=${SHOPIFY_API_KEY}&scope=write_themes,read_themes,read_products&redirect_uri=${HOST}/auth/callback`;
+  const redirectUrl = `https://${shop}/admin/oauth/authorize?client_id=${SHOPIFY_API_KEY}&scope=write_themes,read_themes,read_products,write_products&redirect_uri=${HOST}/auth/callback`;
   res.redirect(redirectUrl);
 });
 
@@ -1171,6 +1171,7 @@ app.get("/auth/callback", async (req, res) => {
       
       <div class="badge">
         ${result.method === 'legacy' ? '✅ Successfully Injected into product-template (Legacy)' :
+          result.method === 'section_auto' ? '✅ Successfully Added and Mounted "Upcell Bundles" Section (Shopify 2.0)' :
           result.method === 'section' ? '✅ Custom theme section added. Manual placement required.' :
           '✅ Upcell Bundle is already configured for this store.'}
       </div>
@@ -1189,7 +1190,7 @@ app.get("/auth/callback", async (req, res) => {
 
       <div class="btn-row">
         <a href="https://${shop}/admin" class="btn" target="_blank">Shopify Admin</a>
-        ${result.method === 'section' ? `<a href="https://${shop}/admin/themes/current/editor" class="btn btn-secondary" target="_blank">Customize Theme</a>` : ''}
+        ${result.method === 'section' || result.method === 'section_auto' ? `<a href="https://${shop}/admin/themes/current/editor" class="btn btn-secondary" target="_blank">Customize Theme</a>` : ''}
       </div>
     </div>
   </div>
@@ -1298,7 +1299,7 @@ async function injectBundleCode(shop, accessToken) {
   if (!activeTheme) throw new Error("No active theme found for this Shopify store.");
   const themeId = activeTheme.id;
 
-  // 3. Try to inject into legacy product template
+  // 3. Try to inject into legacy product template section
   let legacyData;
   try {
     legacyData = await apiFetch(
@@ -1306,7 +1307,7 @@ async function injectBundleCode(shop, accessToken) {
       { headers }
     );
   } catch (e) {
-    // Fine, file does not exist on OS 2.0
+    // Legacy file does not exist on OS 2.0
   }
 
   if (legacyData && legacyData.asset && legacyData.asset.value) {
@@ -1319,7 +1320,7 @@ async function injectBundleCode(shop, accessToken) {
       `{% when 'custom' %}\n\t\t\t\t\t\t\t\t{{blockTitle}}\n\t\t\t\t\t\t\t\t<div id="tab{{block.id}}" class="{{tabClass}} rte">{{block.settings.content}}</div>`,
       `{% when 'custom' %}\n							{{blockTitle}}\n							<div id="tab{{block.id}}" class="{{tabClass}} rte">{{block.settings.content}}</div>`,
       `{{ product.description }}`,
-      `{% schema %}` // guaranteed fallback
+      `{% schema %}`
     ];
 
     let injected = false;
@@ -1345,12 +1346,111 @@ async function injectBundleCode(shop, accessToken) {
     }
   }
 
-  // 4. Shopify 2.0 Theme fallback: upload Upcell section
-  const existingData = await apiFetch(
-    `${API}/themes/${themeId}/assets.json?asset[key]=sections/upcell-bundles.liquid`,
-    { headers }
-  );
-  if (existingData.asset) return { method: "already" };
+  // 4. Check if templates/product.json (Shopify 2.0 JSON layout) exists
+  let jsonTemplateData;
+  try {
+    jsonTemplateData = await apiFetch(
+      `${API}/themes/${themeId}/assets.json?asset[key]=templates/product.json`,
+      { headers }
+    );
+  } catch (e) {
+    // No templates/product.json
+  }
+
+  if (jsonTemplateData && jsonTemplateData.asset && jsonTemplateData.asset.value) {
+    // Upload sections/upcell-bundles.liquid first
+    await apiFetch(`${API}/themes/${themeId}/assets.json`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ asset: { key: "sections/upcell-bundles.liquid", value: BUNDLE_SECTION } }),
+    });
+
+    try {
+      const json = JSON.parse(jsonTemplateData.asset.value);
+      if (json.sections && !json.sections["upcell-bundles"]) {
+        // Inject upcell section block config
+        json.sections["upcell-bundles"] = {
+          type: "upcell-bundles",
+          settings: {
+            title: "Available Bundles"
+          }
+        };
+
+        // Inject order position
+        if (json.order && Array.isArray(json.order)) {
+          const mainIdx = json.order.indexOf("main");
+          if (mainIdx !== -1) {
+            json.order.splice(mainIdx + 1, 0, "upcell-bundles");
+          } else {
+            json.order.push("upcell-bundles");
+          }
+        } else {
+          json.order = ["upcell-bundles"];
+        }
+
+        // Save updated template JSON back
+        await apiFetch(`${API}/themes/${themeId}/assets.json`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({
+            asset: {
+              key: "templates/product.json",
+              value: JSON.stringify(json, null, 2)
+            }
+          })
+        });
+        return { method: "section_auto" };
+      } else {
+        return { method: "already" };
+      }
+    } catch (err) {
+      console.error("Failed to parse or write templates/product.json:", err.message);
+      return { method: "section" }; // Manual fallback
+    }
+  }
+
+  // 5. Try to inject into templates/product.liquid (pure liquid product template fallback)
+  let liquidTemplateData;
+  try {
+    liquidTemplateData = await apiFetch(
+      `${API}/themes/${themeId}/assets.json?asset[key]=templates/product.liquid`,
+      { headers }
+    );
+  } catch (e) {
+    // No templates/product.liquid
+  }
+
+  if (liquidTemplateData && liquidTemplateData.asset && liquidTemplateData.asset.value) {
+    let content = liquidTemplateData.asset.value;
+    if (content.includes("<!-- started of bundel -->")) {
+      return { method: "already" };
+    }
+
+    if (content.includes("{{ product.description }}")) {
+      content = content.replace("{{ product.description }}", "{{ product.description }}\n" + LEGACY_LIQUID);
+    } else {
+      content = content + "\n" + LEGACY_LIQUID;
+    }
+
+    await apiFetch(`${API}/themes/${themeId}/assets.json`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ asset: { key: "templates/product.liquid", value: content } }),
+    });
+    return { method: "legacy" };
+  }
+
+  // 6. Theme 2.0 manual fallback: upload asset section but don't edit templates
+  let existingData;
+  try {
+    existingData = await apiFetch(
+      `${API}/themes/${themeId}/assets.json?asset[key]=sections/upcell-bundles.liquid`,
+      { headers }
+    );
+  } catch (e) {
+    // Fine
+  }
+  if (existingData && existingData.asset) return { method: "already" };
 
   await apiFetch(`${API}/themes/${themeId}/assets.json`, {
     method: "PUT",
