@@ -16,23 +16,24 @@ app.use(express.urlencoded({ extended: true }));
 const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY;
 const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
 const HOST = process.env.HOST;
-const API_VERSION = "2026-04";
+const API_VERSION = "2026-01";
 
 // Safe fetch using node-fetch
 async function apiFetch(url, options = {}) {
+  const method = options.method || "GET";
   const res = await nodeFetch(url, options);
   const text = await res.text();
   if (!text || text.trim() === "") {
-    throw new Error(`Empty response from Shopify API (status: ${res.status})`);
+    throw new Error(`Empty response from Shopify API (${method} ${url} status: ${res.status})`);
   }
   try {
     const json = JSON.parse(text);
     if (json.errors) {
-      throw new Error(JSON.stringify(json.errors));
+      throw new Error(`Shopify API Error (${method} ${url}): ${JSON.stringify(json.errors)}`);
     }
     return json;
   } catch (e) {
-    throw new Error(`API Error: ${text.substring(0, 300)}`);
+    throw new Error(`API Error (${method} ${url}): ${text.substring(0, 300)}`);
   }
 }
 
