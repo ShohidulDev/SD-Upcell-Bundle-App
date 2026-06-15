@@ -1,4 +1,5 @@
 const express = require("express");
+const nodeFetch = require("node-fetch");
 require("dotenv").config();
 
 const app = express();
@@ -9,21 +10,20 @@ const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY;
 const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
 const HOST = process.env.HOST;
 
-// Safe fetch helper - always returns parsed JSON or throws clear error
-async function safeFetch(url, options = {}) {
-  const res = await fetch(url, options);
+// Safe fetch using node-fetch
+async function apiFetch(url, options = {}) {
+  const res = await nodeFetch(url, options);
   const text = await res.text();
   if (!text || text.trim() === "") {
-    throw new Error(`Empty response from ${url} (status: ${res.status})`);
+    throw new Error(`Empty response from Shopify API (status: ${res.status})`);
   }
   try {
-    return { data: JSON.parse(text), status: res.status };
+    return JSON.parse(text);
   } catch (e) {
-    throw new Error(`JSON parse failed for ${url}: ${text.substring(0, 200)}`);
+    throw new Error(`API Error: ${text.substring(0, 300)}`);
   }
 }
 
-// Bundle section for Shopify 2.0 themes
 const BUNDLE_SECTION = `{%- assign current_tags_lower2 = '' -%}
 {%- for tag in product.tags -%}
   {%- assign tl = tag | downcase -%}
@@ -93,13 +93,12 @@ const BUNDLE_SECTION = `{%- assign current_tags_lower2 = '' -%}
 {
   "name": "Upcell Bundles",
   "settings": [
-    {"type": "text", "id": "title", "label": "Title", "default": "Available Bundles"}
+    {"type":"text","id":"title","label":"Title","default":"Available Bundles"}
   ],
-  "presets": [{"name": "Upcell Bundles"}]
+  "presets": [{"name":"Upcell Bundles"}]
 }
 {% endschema %}`;
 
-// Bundle code for legacy themes
 const LEGACY_LIQUID = `
               {%- if block.settings.title == 'SHIPPING & RETURNS' -%}
                 <!-- started of bundel -->
@@ -159,7 +158,7 @@ const LEGACY_LIQUID = `
 const BUNDLE_CSS = `<style>
 .ub-wrap{border:1px solid #e8e8e8;border-radius:8px;padding:16px;margin:20px 0;background:#fafafa}
 .ub-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.ub-badge{background:#2e7d32;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.ub-badge{background:#2e7d32;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;padding:3px 10px;border-radius:20px}
 .ub-heading{font-size:14px;font-weight:600;margin:0;color:#333}
 .ub-list{display:flex;flex-direction:column;gap:10px}
 .ub-item{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #ececec;border-radius:6px;padding:10px 12px;gap:10px}
@@ -172,16 +171,14 @@ const BUNDLE_CSS = `<style>
 .ub-btn:hover{background:#2e7d32}
 </style>`;
 
-// ============================================
-// ROUTES
-// ============================================
+// Routes
 app.get("/", (req, res) => {
   res.send(`<!DOCTYPE html><html><head><title>Upcell Bundle & Product</title>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,sans-serif;background:#f6f6f7}
   .hero{background:linear-gradient(135deg,#1a1a2e,#0f3460);color:white;padding:80px 20px;text-align:center}
   .hero h1{font-size:40px;margin-bottom:12px}.hero p{font-size:17px;opacity:.8;margin-bottom:36px;color:#ccc}
-  .btn{background:white;color:#1a1a2e;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block}
+  .btn{background:white;color:#1a1a2e;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block}
   .features{max-width:900px;margin:60px auto;padding:0 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
   .feature{background:white;border-radius:12px;padding:28px 20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08)}
   .feature .icon{font-size:40px;margin-bottom:12px}.feature h3{margin-bottom:8px}.feature p{color:#666;font-size:13px;line-height:1.6}
@@ -190,8 +187,7 @@ app.get("/", (req, res) => {
   .install-form{max-width:500px;margin:0 auto;display:flex;gap:10px}
   .install-form input{flex:1;padding:13px;border-radius:8px;border:none;font-size:14px}
   .install-form button{background:white;color:#1a1a2e;padding:13px 22px;border-radius:8px;border:none;font-weight:700;cursor:pointer}
-  footer{background:#111;color:#666;padding:24px;text-align:center;font-size:13px}
-  footer a{color:#888;text-decoration:none;margin:0 8px}
+  footer{background:#111;color:#666;padding:24px;text-align:center;font-size:13px}footer a{color:#888;text-decoration:none;margin:0 8px}
   @media(max-width:700px){.features{grid-template-columns:1fr}.install-form{flex-direction:column}}</style>
   </head><body>
   <div class="hero">
@@ -200,9 +196,9 @@ app.get("/", (req, res) => {
     <a href="#install" class="btn">Install Free →</a>
   </div>
   <div class="features">
-    <div class="feature"><div class="icon">⚡</div><h3>All Themes</h3><p>Works with every Shopify theme including Shopify 2.0 Online Store themes.</p></div>
-    <div class="feature"><div class="icon">🎯</div><h3>Smart Matching</h3><p>Tag-based matching. Case-insensitive. Shows the right bundle for each product.</p></div>
-    <div class="feature"><div class="icon">🆓</div><h3>100% Free</h3><p>Completely free forever. No hidden fees, no credit card required.</p></div>
+    <div class="feature"><div class="icon">⚡</div><h3>All Themes</h3><p>Works with every Shopify theme including Shopify 2.0.</p></div>
+    <div class="feature"><div class="icon">🎯</div><h3>Smart Matching</h3><p>Tag-based matching. Case-insensitive. Shows right bundle for each product.</p></div>
+    <div class="feature"><div class="icon">🆓</div><h3>100% Free</h3><p>Completely free forever. No hidden fees.</p></div>
   </div>
   <div class="install-section" id="install">
     <h2>Install on Your Store</h2>
@@ -214,15 +210,14 @@ app.get("/", (req, res) => {
   </div>
   <footer>
     <p><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="mailto:shohidul.islam.dev@gmail.com">Support</a></p>
-    <p style="margin-top:8px">Built by <strong style="color:#ccc">Shohidul Islam</strong> | © 2026 Upcell Bundle & Product</p>
-  </footer>
-  </body></html>`);
+    <p style="margin-top:8px">Built by <strong style="color:#ccc">Shohidul Islam</strong> | © 2026</p>
+  </footer></body></html>`);
 });
 
 app.get("/privacy", (req, res) => {
   res.send(`<!DOCTYPE html><html><head><title>Privacy Policy</title><style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:20px;line-height:1.8}h1{color:#2e7d32}a{color:#2e7d32}</style></head><body>
   <a href="/">← Back</a><h1>Privacy Policy</h1><p><strong>Last updated:</strong> June 2026 | <a href="mailto:shohidul.islam.dev@gmail.com">shohidul.islam.dev@gmail.com</a></p>
-  <h2>1. Information We Collect</h2><p>We only access theme files to inject bundle code. No personal data collected or stored.</p>
+  <h2>1. Data We Collect</h2><p>We only access theme files to inject bundle code. No personal data collected or stored.</p>
   <h2>2. Data Sharing</h2><p>We do not sell or share any data.</p>
   <h2>3. GDPR & CCPA</h2><p>No customer personal data is collected or processed.</p>
   <h2>4. Security</h2><p>All communications encrypted via HTTPS/TLS.</p>
@@ -235,9 +230,8 @@ app.get("/terms", (req, res) => {
   <a href="/">← Back</a><h1>Terms of Service</h1><p><strong>Last updated:</strong> June 2026</p>
   <h2>1. Acceptance</h2><p>By installing, you agree to these terms.</p>
   <h2>2. Service</h2><p>Free app that injects bundle display code into your Shopify theme.</p>
-  <h2>3. Theme Modification</h2><p>You authorize us to modify your active theme. Backup your theme first.</p>
-  <h2>4. Liability</h2><p>Not liable for any damages from use of this app.</p>
-  <h2>5. Contact</h2><p><a href="mailto:shohidul.islam.dev@gmail.com">shohidul.islam.dev@gmail.com</a></p>
+  <h2>3. Liability</h2><p>Not liable for any damages. Backup theme before installation.</p>
+  <h2>4. Contact</h2><p><a href="mailto:shohidul.islam.dev@gmail.com">shohidul.islam.dev@gmail.com</a></p>
   </body></html>`);
 });
 
@@ -253,30 +247,29 @@ app.get("/auth/callback", async (req, res) => {
   const { shop, code } = req.query;
   if (!shop || !code) return res.status(400).send("Invalid request");
   try {
-    // Get access token
-    const tokenRes = await safeFetch(`https://${shop}/admin/oauth/access_token`, {
+    // Get access token using node-fetch
+    const tokenData = await apiFetch(`https://${shop}/admin/oauth/access_token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ client_id: SHOPIFY_API_KEY, client_secret: SHOPIFY_API_SECRET, code }),
     });
 
-    const access_token = tokenRes.data.access_token;
-    if (!access_token) throw new Error("No access token in response");
+    const access_token = tokenData.access_token;
+    if (!access_token) throw new Error(`No access token. Response: ${JSON.stringify(tokenData)}`);
 
     const result = await injectBundleCode(shop, access_token);
 
     res.send(`<!DOCTYPE html><html><head><title>Installed!</title>
     <style>body{font-family:sans-serif;max-width:600px;margin:60px auto;padding:20px;text-align:center}
     h1{color:#2e7d32}.btn{display:inline-block;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;margin:6px;background:#2e7d32;color:white}
-    .steps{background:#f6f6f7;border-radius:12px;padding:20px;text-align:left;margin:20px 0}
-    ol li{margin-bottom:8px;color:#444;font-size:14px}
+    .steps{background:#f6f6f7;border-radius:12px;padding:20px;text-align:left;margin:20px 0}ol li{margin-bottom:8px;color:#444;font-size:14px}
     .badge{background:#e8f5e9;border:1px solid #66bb6a;border-radius:8px;padding:10px 14px;margin-bottom:18px;font-size:14px;color:#2e7d32}</style></head>
     <body>
     <div style="font-size:60px">✅</div>
     <h1>Installation Complete!</h1>
     <div class="badge">
       ${result.method === 'legacy' ? '✅ Injected into product-template.liquid (Legacy theme)' :
-        result.method === 'section' ? '✅ Added as upcell-bundles.liquid (Shopify 2.0) — Add section in Theme Editor' :
+        result.method === 'section' ? '✅ Added upcell-bundles.liquid section — Add it in Theme Editor' :
         '⚠️ Already installed'}
     </div>
     <div class="steps"><h3 style="margin-bottom:12px">Next Steps:</h3><ol>
@@ -293,40 +286,35 @@ app.get("/auth/callback", async (req, res) => {
   } catch (err) {
     console.error("Install error:", err.message);
     res.status(500).send(`<html><body style="font-family:sans-serif;max-width:500px;margin:60px auto;padding:20px;text-align:center">
-    <h2 style="color:red">Installation Failed</h2>
-    <p style="color:#666">${err.message}</p>
+    <h2 style="color:red">Installation Failed</h2><p style="color:#666">${err.message}</p>
     <p><a href="/">Try again</a> or <a href="mailto:shohidul.islam.dev@gmail.com">contact support</a></p>
     </body></html>`);
   }
 });
 
-// GDPR
+// GDPR Webhooks
 app.post("/webhooks/customers/redact", (req, res) => res.sendStatus(200));
 app.post("/webhooks/shop/redact", (req, res) => res.sendStatus(200));
 app.post("/webhooks/customers/data_request", (req, res) => res.sendStatus(200));
 app.post("/webhooks/app/uninstalled", (req, res) => res.sendStatus(200));
 
-// ============================================
-// UNIVERSAL INJECT
-// ============================================
 async function injectBundleCode(shop, accessToken) {
   const headers = { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" };
   const API = `https://${shop}/admin/api/2024-01`;
 
-  // Get active theme
-  const themesResult = await safeFetch(`${API}/themes.json`, { headers });
-  const activeTheme = themesResult.data.themes.find((t) => t.role === "main");
+  const themesData = await apiFetch(`${API}/themes.json`, { headers });
+  const activeTheme = themesData.themes.find((t) => t.role === "main");
   if (!activeTheme) throw new Error("No active theme found");
   const themeId = activeTheme.id;
 
-  // Try legacy theme first
-  const legacyResult = await safeFetch(
+  // Try legacy
+  const legacyData = await apiFetch(
     `${API}/themes/${themeId}/assets.json?asset[key]=sections/product-template.liquid`,
     { headers }
   );
 
-  if (legacyResult.data.asset && legacyResult.data.asset.value) {
-    let content = legacyResult.data.asset.value;
+  if (legacyData.asset && legacyData.asset.value) {
+    let content = legacyData.asset.value;
     if (content.includes("<!-- started of bundel -->")) return { method: "already" };
 
     const targets = [
@@ -334,37 +322,30 @@ async function injectBundleCode(shop, accessToken) {
       `{% when 'custom' %}\n							{{blockTitle}}\n							<div id="tab{{block.id}}" class="{{tabClass}} rte">{{block.settings.content}}</div>`,
     ];
 
-    let injected = false;
     for (const target of targets) {
       if (content.includes(target)) {
         content = content.replace(target, target + "\n" + LEGACY_LIQUID);
-        injected = true;
-        break;
+        if (content.includes("{% schema %}")) {
+          content = content.replace("{% schema %}", BUNDLE_CSS + "\n\n{% schema %}");
+        }
+        await apiFetch(`${API}/themes/${themeId}/assets.json`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ asset: { key: "sections/product-template.liquid", value: content } }),
+        });
+        return { method: "legacy" };
       }
-    }
-
-    if (injected) {
-      if (content.includes("{% schema %}")) {
-        content = content.replace("{% schema %}", BUNDLE_CSS + "\n\n{% schema %}");
-      }
-      await safeFetch(`${API}/themes/${themeId}/assets.json`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({ asset: { key: "sections/product-template.liquid", value: content } }),
-      });
-      return { method: "legacy" };
     }
   }
 
-  // Shopify 2.0 — check if already installed
-  const existingResult = await safeFetch(
+  // Shopify 2.0
+  const existingData = await apiFetch(
     `${API}/themes/${themeId}/assets.json?asset[key]=sections/upcell-bundles.liquid`,
     { headers }
   );
-  if (existingResult.data.asset) return { method: "already" };
+  if (existingData.asset) return { method: "already" };
 
-  // Create section file
-  await safeFetch(`${API}/themes/${themeId}/assets.json`, {
+  await apiFetch(`${API}/themes/${themeId}/assets.json`, {
     method: "PUT",
     headers,
     body: JSON.stringify({ asset: { key: "sections/upcell-bundles.liquid", value: BUNDLE_SECTION } }),
