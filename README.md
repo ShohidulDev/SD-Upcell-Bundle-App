@@ -1,137 +1,98 @@
-# 🎁 Upcell Bundle & Product
-### Shopify App — Free
+# 🎁 Upcell Bundle & Save — Theme App Extension (Remix)
 
-Automatically display bundle products on single product pages to increase average order value.
+## কী বদলেছে পুরনো প্রজেক্ট থেকে
 
----
+পুরনো `server.js` Express app সরাসরি Admin Asset API দিয়ে আপনার থিমের
+`templates/product.liquid` বা `sections/product-template.liquid` ফাইলে
+liquid কোড **inject** করত। এই পদ্ধতিতে merchant সেই ব্লক drag করে move
+করতে পারত না, এবং কোনো নতুন থিমে switch করলে আবার ইনজেক্ট করতে হতো।
 
-## 📁 File Structure
+নতুন প্রজেক্ট **Theme App Extension** ব্যবহার করে — কোনো থিম ফাইল এডিট হয় না।
+Merchant theme editor-এ গিয়ে **Add block → Apps → "Upcell: Bundle & Save"**
+সিলেক্ট করে, drag করে product section-এর ভেতরে যেকোনো জায়গায় বসাতে এবং
+move করতে পারবে। থিম পরিবর্তন করলেও merchant শুধু আবার ব্লক যুক্ত করবে —
+কোনো কোড touch করতে হবে না।
+
+## ফোল্ডার স্ট্রাকচার
+
 ```
-upcell-bundle-app/
-├── server.js          ← Main Express server
-├── package.json       ← Dependencies
-├── vercel.json        ← Vercel deployment config
-├── .env.example       ← Environment variables template
-├── .gitignore
-└── README.md
+sd-upcell-bundle-app/
+├── shopify.app.toml              ← App-level কনফিগ (scopes, webhooks)
+├── package.json
+├── vite.config.ts
+├── prisma/schema.prisma          ← Session storage (SQLite, dev-ready)
+├── app/
+│   ├── shopify.server.js         ← OAuth + API client সেটআপ (shopify-app-remix)
+│   ├── db.server.js
+│   ├── root.jsx
+│   └── routes/
+│       ├── auth.$.jsx            ← OAuth callback (HMAC verify built-in)
+│       ├── auth.login/route.jsx
+│       ├── app.jsx               ← Embedded admin shell (nav)
+│       ├── app._index.jsx        ← Dashboard: setup status + "Open theme editor" বাটন
+│       ├── webhooks.app.uninstalled.jsx
+│       ├── webhooks.app.scopes_update.jsx
+│       ├── webhooks.customers.data_request.jsx
+│       ├── webhooks.customers.redact.jsx
+│       └── webhooks.shop.redact.jsx
+└── extensions/
+    └── upcell-bundle/
+        ├── shopify.extension.toml
+        ├── blocks/
+        │   └── bundle-save.liquid    ← মূল App Block (Apps ট্যাবে দেখাবে)
+        ├── assets/
+        │   └── upcell-bundle.css
+        └── locales/
+            └── en.default.json
 ```
 
----
+## Bundle matching logic (অপরিবর্তিত)
 
-## 🚀 Deploy to Vercel (Step by Step)
+পুরনো লজিকই রাখা হয়েছে, শুধু এখন এটা App Block-এর ভেতরে চলে:
 
-### Step 1 — Create Shopify Partner Account
-1. Go to https://partners.shopify.com
-2. Create a free account
+1. `Packages` কালেকশনে থাকা প্রোডাক্ট, যাদের `is-bundle` ট্যাগ আছে।
+2. সেই বান্ডেলের অন্য ট্যাগগুলো (is-bundle বাদে) যদি current product-এর
+   ট্যাগের সাথে মিলে যায় (case-insensitive), তাহলে বান্ডেল কার্ড দেখাবে।
+3. মার্চেন্ট চাইলে কালেকশন handle, badge text, heading, button text,
+   এবং max bundle সংখ্যা — সব **theme editor থেকে** কনফিগার করতে পারবে
+   (block settings এ আগে থেকেই দেওয়া আছে)।
 
-### Step 2 — Create App in Partner Dashboard
-1. Click **Apps → Create App → Create app manually**
-2. Fill in:
-   - App name: `Upcell Bundle & Product`
-   - App URL: `https://your-app.vercel.app` *(update after deploy)*
-   - Allowed redirection URLs: `https://your-app.vercel.app/auth/callback`
-3. Copy **API Key** and **API Secret**
+## প্রথমবার সেটআপ করার ধাপ
 
-### Step 3 — Push to GitHub
 ```bash
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/yourusername/upcell-bundle-app.git
-git push -u origin main
+npm install
+shopify app config link        # আপনার Partner Dashboard-এর app-এর সাথে link করুন
+cp .env.example .env           # SHOPIFY_API_KEY, SECRET, APP_URL ভরে দিন
+npm run dev                    # dev store-এ test করার জন্য
 ```
 
-### Step 4 — Deploy to Vercel
-1. Go to https://vercel.com
-2. Click **Add New Project → Import Git Repository**
-3. Select your repo
-4. Add Environment Variables:
-   | Key | Value |
-   |---|---|
-   | `SHOPIFY_API_KEY` | Your API key from Partner Dashboard |
-   | `SHOPIFY_API_SECRET` | Your API secret from Partner Dashboard |
-   | `HOST` | `https://your-app.vercel.app` |
-5. Click **Deploy**
+`shopify app dev` চালালে CLI আপনাকে dev store সিলেক্ট করতে বলবে এবং
+automatically tunnel/HTTPS URL সেট করে দেবে।
 
-### Step 5 — Update Shopify App URLs
-1. Go back to Partner Dashboard → Your App → App setup
-2. Update **App URL** to your Vercel URL
-3. Update **Allowed redirection URLs** to `https://your-app.vercel.app/auth/callback`
-4. Save
+## Theme editor-এ ব্লক বসানো (merchant-এর করণীয়)
 
----
+1. Online Store → Themes → Customize
+2. Product page-এ যান
+3. "Product information" section-এ **Add block → Apps**
+4. **"Upcell: Bundle & Save"** সিলেক্ট করুন
+5. Drag করে যেকোনো জায়গায় বসান (Buy button-এর নিচে, Description-এর উপরে — যেখানে ইচ্ছা)
 
-## 📋 App URLs
+Dashboard-এর "Open theme editor" বাটনে ক্লিক করলে সরাসরি product
+template-এর editor-এ চলে যাবে, deep-link প্যারামিটার দিয়ে।
 
-| URL | Purpose |
-|---|---|
-| `https://your-app.vercel.app` | Home / Landing page |
-| `https://your-app.vercel.app/install?shop=store.myshopify.com` | Install on a store |
-| `https://your-app.vercel.app/auth/callback` | OAuth callback |
-| `https://your-app.vercel.app/privacy` | Privacy policy |
-| `https://your-app.vercel.app/terms` | Terms of service |
+## Production deploy
 
----
-
-## 🏪 Submit to Shopify App Store
-
-### Requirements checklist:
-- ✅ OAuth authentication
-- ✅ GDPR webhooks (customers/redact, shop/redact, customers/data_request)
-- ✅ App uninstall webhook
-- ✅ Privacy Policy page
-- ✅ Terms of Service page
-- ✅ Landing page
-
-### Submit steps:
-1. Partner Dashboard → Apps → Your App
-2. Click **Distribution → Shopify App Store**
-3. Fill in app listing details:
-   - App name: `Upcell Bundle & Product`
-   - Tagline: `Show bundle products on product pages automatically`
-   - Description: (see below)
-   - Screenshots: Take screenshots of bundles appearing on product pages
-   - Category: `Merchandising`
-   - Pricing: Free
-4. Submit for review
-
-### App Store Description:
-```
-Upcell Bundle & Product automatically displays bundle products on your single product pages — helping you increase average order value with zero effort.
-
-How it works:
-• Install the app — bundle code is automatically added to your theme
-• Add bundle products to your "Packages" collection
-• Tag bundle and single products with matching tags
-• Bundles appear automatically under Shipping & Returns
-
-Features:
-✓ Automatic tag-based matching
-✓ Case-insensitive tags (HairCare = haircare = HAIRCARE)
-✓ Works with any theme using standard product template
-✓ Beautiful bundle display with image, title, price and CTA button
-✓ 100% Free — no hidden charges
+```bash
+shopify app deploy     # extension ভার্সন তৈরি করে Partner Dashboard-এ পাঠাবে
 ```
 
----
+Hosting-এর জন্য Vercel/Fly.io/Render যেকোনো Node host চলবে; Remix-এর
+`build` ও `start` script আগে থেকেই `package.json`-এ দেওয়া আছে।
 
-## ⚙️ How Bundle Matching Works
+## এখনো করতে হবে (আপনার তথ্য দিয়ে পূরণ করুন)
 
-```
-Product page loads
-      ↓
-App reads all tags on current product (converted to lowercase)
-      ↓
-Loops through all products in "Packages" collection
-      ↓
-Finds products tagged with "is-bundle"
-      ↓
-Checks if any tag matches between bundle and single product
-      ↓
-Matching bundles appear under Shipping & Returns ✅
-```
-
----
-
-## 📞 Support
-Email: shohidul.islam.dev@gmail.com
+- `shopify.app.toml` → `client_id` ও `application_url`
+- `.env` → `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL`
+- Privacy Policy ও Terms of Service পেজ (App Store submission-এর জন্য লাগবে — পুরনো
+  app-এ static HTML রুট ছিল; চাইলে আমি Remix route হিসেবে আবার বানিয়ে দিতে পারি)
+- `node_modules` ইচ্ছাকৃতভাবে দেওয়া হয়নি — `npm install` চালালে চলে আসবে

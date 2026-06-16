@@ -1,4 +1,9 @@
-node_modules/
+node_modules
+/build
 .env
-.vercel
-*.log
+.shopify
+*.sqlite
+*.sqlite-journal
+.cache
+/public/build
+.DS_Store

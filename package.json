@@ -1,18 +1,68 @@
 {
   "name": "sd-upcell-bundle-app",
-  "version": "1.0.0",
-  "description": "Shopify upsell and bundle app",
-  "main": "server.js",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "build": "remix vite:build",
+    "dev": "shopify app dev",
+    "config:link": "shopify app config link",
+    "generate": "shopify app generate",
+    "deploy": "shopify app deploy",
+    "config:use": "shopify app config use",
+    "env": "shopify app env",
+    "start": "remix-serve ./build/server/index.js",
+    "docker-start": "npm run setup && npm run start",
+    "setup": "prisma generate && prisma migrate deploy",
+    "vercel-build": "prisma generate && prisma migrate deploy && remix vite:build",
+    "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
+    "shopify": "shopify",
+    "prisma": "prisma",
+    "graphql-codegen": "graphql-codegen",
+    "vite": "vite"
+  },
+  "type": "module",
+  "engines": {
+    "node": "^18.20 || ^20.10 || >=21.0.0"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "dotenv": "^16.0.3",
-    "node-fetch": "^2.7.0"
+    "@prisma/client": "^5.11.0",
+    "@remix-run/dev": "^2.16.1",
+    "@remix-run/fs-routes": "^2.16.1",
+    "@remix-run/node": "^2.16.1",
+    "@remix-run/react": "^2.16.1",
+    "@remix-run/serve": "^2.16.1",
+    "@shopify/app-bridge-react": "^4.1.6",
+    "@shopify/polaris": "^13.9.5",
+    "@shopify/shopify-app-remix": "^3.7.0",
+    "@shopify/shopify-app-session-storage-prisma": "^6.0.0",
+    "isbot": "^5.1.0",
+    "prisma": "^5.11.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "vite-tsconfig-paths": "^5.0.1"
   },
-"engines": {
-  "node": "24.x"
-}
+  "devDependencies": {
+    "@shopify/api-codegen-preset": "^1.1.1",
+    "@types/eslint": "^8.40.0",
+    "@types/node": "^22.2.0",
+    "@types/react": "^18.2.31",
+    "@types/react-dom": "^18.2.14",
+    "eslint": "^8.42.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.4",
+    "typescript": "^5.2.2",
+    "vite": "^6.2.2"
+  },
+  "workspaces": [
+    "extensions/*"
+  ],
+  "trustedDependencies": [
+    "@shopify/plugin-cloudflare"
+  ],
+  "resolutions": {
+    "undici": "6.21.1"
+  },
+  "overrides": {
+    "undici": "6.21.1"
+  },
+  "author": "shohidul.islam.dev@gmail.com"
 }

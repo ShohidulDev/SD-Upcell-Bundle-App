@@ -1,0 +1,130 @@
+{% comment %}
+  Upcell Bundle & Save — App Block
+  Renders under Apps tab in theme editor. target=section means a merchant
+  can drag this block into ANY section (e.g. Product information) and
+  reorder it freely — works on every Online Store 2.0 theme.
+{% endcomment %}
+
+{%- assign current_tags_lower = ',' -%}
+{%- for tag in product.tags -%}
+  {%- assign tl = tag | downcase | strip -%}
+  {%- unless tl == 'is-bundle' -%}
+    {%- assign current_tags_lower = current_tags_lower | append: tl | append: ',' -%}
+  {%- endunless -%}
+{%- endfor -%}
+
+{%- capture bundle_items -%}
+  {%- assign bundle_collection_handle = block.settings.bundle_collection | default: 'packages' -%}
+  {%- assign bundle_col = collections[bundle_collection_handle] -%}
+  {%- if bundle_col -%}
+    {%- assign shown = 0 -%}
+    {%- assign max_items = block.settings.max_bundles | default: 3 -%}
+    {%- for p in bundle_col.products limit: 50 -%}
+      {%- if shown >= max_items -%}{%- break -%}{%- endif -%}
+      {%- assign p_is_bundle = false -%}
+      {%- for ptag in p.tags -%}
+        {%- assign ptag_check = ptag | downcase | strip -%}
+        {%- if ptag_check == 'is-bundle' -%}{%- assign p_is_bundle = true -%}{%- break -%}{%- endif -%}
+      {%- endfor -%}
+      {%- if p_is_bundle and p.handle != product.handle -%}
+        {%- assign matched = false -%}
+        {%- for ptag in p.tags -%}
+          {%- assign ptag_lower = ptag | downcase | strip -%}
+          {%- unless ptag_lower == 'is-bundle' -%}
+            {%- assign ptag_search = ',' | append: ptag_lower | append: ',' -%}
+            {%- if current_tags_lower contains ptag_search -%}{%- assign matched = true -%}{%- break -%}{%- endif -%}
+          {%- endunless -%}
+        {%- endfor -%}
+        {%- if matched -%}
+          {%- assign shown = shown | plus: 1 -%}
+          <div class="ub-item">
+            <a href="{{ p.url }}" class="ub-link">
+              <div class="ub-img">
+                {%- if p.featured_image -%}
+                  <img
+                    src="{{ p.featured_image | image_url: width: 120 }}"
+                    loading="lazy"
+                    alt="{{ p.title | escape }}"
+                    width="56"
+                    height="56"
+                  >
+                {%- endif -%}
+              </div>
+              <div class="ub-info">
+                <span class="ub-title">{{ p.title }}</span>
+                <span class="ub-price">{{ p.price | money }}</span>
+              </div>
+            </a>
+            <a href="{{ p.url }}" class="ub-btn">{{ block.settings.cta_text | default: 'View Bundle' }}</a>
+          </div>
+        {%- endif -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+{%- endcapture -%}
+
+{%- assign bundle_items = bundle_items | strip -%}
+
+{%- unless bundle_items == blank -%}
+  <div class="ub-wrap" {{ block.shopify_attributes }}>
+    <div class="ub-header">
+      <span class="ub-badge">{{ block.settings.badge_text | default: 'Bundle & Save' }}</span>
+      <h4 class="ub-heading">{{ block.settings.heading | default: 'Perfect Partners' }}</h4>
+    </div>
+    <div class="ub-list">{{ bundle_items }}</div>
+  </div>
+{%- endunless -%}
+
+{{ 'upcell-bundle.css' | asset_url | stylesheet_tag }}
+
+{% schema %}
+{
+  "name": "Upcell: Bundle & Save",
+  "target": "section",
+  "stylesheet": "upcell-bundle.css",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "badge_text",
+      "label": "Badge text",
+      "default": "Bundle & Save"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Perfect Partners"
+    },
+    {
+      "type": "text",
+      "id": "cta_text",
+      "label": "Button text",
+      "default": "View Bundle"
+    },
+    {
+      "type": "header",
+      "content": "Matching"
+    },
+    {
+      "type": "text",
+      "id": "bundle_collection",
+      "label": "Bundle collection handle",
+      "default": "packages",
+      "info": "Products in this collection, tagged 'is-bundle', are checked against the current product's tags."
+    },
+    {
+      "type": "range",
+      "id": "max_bundles",
+      "label": "Max bundles to show",
+      "min": 1,
+      "max": 5,
+      "step": 1,
+      "default": 3
+    }
+  ]
+}
+{% endschema %}
